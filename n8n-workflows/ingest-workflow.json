@@ -1,0 +1,256 @@
+{
+  "name": "Ingest Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        976,
+        -16
+      ],
+      "id": "71104ef3-41f9-4405-b8a3-4afbe3149c60",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        0
+      ],
+      "id": "3e7b327c-06b2-4b6f-bd2c-ef4d9c79c625",
+      "name": "Wait",
+      "webhookId": "b1c1f890-760f-46fe-a83b-d5a5f5684c83"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "827d742d-d524-4ce5-b601-ed38d43e0e07",
+              "name": "text",
+              "value": "={{ 'Q: ' + $json.Question + '\\nA: ' + $json.Answer }}\n",
+              "type": "string"
+            },
+            {
+              "id": "ecca1757-f077-463a-8866-7a5fa8803a16",
+              "name": "source",
+              "value": "fitness-qa",
+              "type": "string"
+            },
+            {
+              "id": "6f4149fb-08c8-4c4e-9096-2659541a840a",
+              "name": "rowIndex",
+              "value": "={{ $itemIndex }}\n",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        624,
+        0
+      ],
+      "id": "5808aae4-0e0f-4e74-a9a5-6858226999dd",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=YOUR_GEMINI_API_KEY",
+        "sendBody": true,
+        "specifyBody": "=json",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "={{ JSON.stringify({ model: \"models/gemini-embedding-001\", content: { parts: [ { text: $json.text } ] } }) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1440,
+        0
+      ],
+      "id": "34174917-3fae-48c3-bc0a-71945fe7895e",
+      "name": "Get Embedding"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "6df04067-08a4-49bb-8f54-9d7f4a82c52f",
+      "name": "Extract Text"
+    },
+    {
+      "parameters": {
+        "fileSelector": "/home/node/.n8n-files/notes/fitness-qa-100.csv",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "7ce47031-ecca-4d05-89d6-87d7fdae4911",
+      "name": "Read Notes From Disk"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://chromadb:8000/api/v1/collections/bced9c65-555e-44ef-a8c7-2e4f1e8936d3/add",
+        "sendBody": true,
+        "specifyBody": "=json",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "={{ JSON.stringify({ ids: ['fitness-' + $('Edit Fields').item.json.rowIndex], embeddings: [$json.embedding.values], documents: [$('Edit Fields').item.json.text], metadatas: [{ source: $('Edit Fields').item.json.source }] }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1680,
+        0
+      ],
+      "id": "d35c8637-38e2-4527-9956-46fe01d9b527",
+      "name": "Store In ChromaDB"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "08638a25-e9c2-4f7b-9b7d-eb2e7f49dbd4",
+      "name": "When clicking ‘Execute workflow’"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Get Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Embedding": {
+      "main": [
+        [
+          {
+            "node": "Store In ChromaDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Notes From Disk": {
+      "main": [
+        [
+          {
+            "node": "Extract Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store In ChromaDB": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Read Notes From Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "79b679b0-c380-4d0f-867e-50937b86539b",
+  "meta": {
+    "instanceId": "492b78986b7417c2691fe790427ad44ff98623abd218819ff09908a68388be72"
+  },
+  "nodeGroups": [],
+  "id": "l2zJk6W1vm14RiJg",
+  "tags": []
+}

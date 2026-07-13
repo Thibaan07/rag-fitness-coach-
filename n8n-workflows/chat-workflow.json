@@ -1,0 +1,212 @@
+{
+  "name": "Chat Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "26f6c942-4a2e-4cf2-8f69-1a6f5ee7902b",
+              "name": "question",
+              "value": "={{ $json.chatInput }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "88f52351-2a9c-41fb-9a91-277b9e41cd35",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=YOUR_GEMINI_API_KEY",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"models/gemini-embedding-001\", content: { parts: [ { text: $json.question } ] } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        416,
+        0
+      ],
+      "id": "dc8ebec6-43db-4f55-b8c8-2bf756375495",
+      "name": "Get Question Embedding"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://chromadb:8000/api/v1/collections/bced9c65-555e-44ef-a8c7-2e4f1e8936d3/query",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query_embeddings: [$json.embedding.values], n_results: 3 }) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        624,
+        0
+      ],
+      "id": "d7d9f20b-5c15-411c-8491-d0bc53846abd",
+      "name": "Search ChromaDB"
+    },
+    {
+      "parameters": {
+        "jsCode": "const question = $('Edit Fields').item.json.question;\nconst docs = $json.documents[0];\n\nconst context = docs.map((doc, i) => `[${i+1}] ${doc}`).join('\\n\\n');\n\nconst prompt = `You are a helpful, friendly fitness coach chatting with someone. Use the context below to answer naturally and conversationally, like a text message reply — not a formal report. Keep it concise. The context may not use the exact same words as the question, so use reasonable judgment to connect related information. Only say you don't have enough information if the context is truly unrelated to the question.\n\n\n\nContext:\n${context}\n\nQuestion: ${question}\n\nAnswer:`;\n\nreturn [{ json: { prompt: prompt } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        0
+      ],
+      "id": "502d0012-a02f-47bf-9677-1e0c45d8553b",
+      "name": "Build Prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=YOUR_GEMINI_API_KEY\n",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [ { parts: [ { text: $json.prompt } ] } ] }) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "263f7aa9-c344-4c37-82bd-818a9b861a05",
+      "name": "Generate Answer"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst answerText = response.candidates[0].content.parts[0].text;\n\nreturn [{\n  json: {\n    output: answerText\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        0
+      ],
+      "id": "4351b44d-8736-4fd2-81df-e1791035c10d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4128701b-c2c9-4b4c-953b-27bde8515e9a",
+      "name": "When chat message received",
+      "webhookId": "2d37af34-a49d-4c4a-b3a7-61cc55ac93f3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Get Question Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Question Embedding": {
+      "main": [
+        [
+          {
+            "node": "Search ChromaDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search ChromaDB": {
+      "main": [
+        [
+          {
+            "node": "Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Answer": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        []
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "72f2ddd7-c8e7-4d43-a625-49ff28cb6650",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "492b78986b7417c2691fe790427ad44ff98623abd218819ff09908a68388be72"
+  },
+  "nodeGroups": [],
+  "id": "ZUtRjtGtPs2VuJUh",
+  "tags": []
+}
