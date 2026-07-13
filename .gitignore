@@ -1,0 +1,14 @@
+# Copyrighted AWS course material - keep private, never push
+original-backup/
+pdf-backup/
+fitness-full.csv
+test-extract.txt
+
+# n8n runtime data (contains credentials/tokens)
+n8n_data/
+
+# Any leftover PDFs/notes that shouldn't be public
+notes/*.pdf
+
+# OS junk
+.DS_Store

@@ -1,0 +1,35 @@
+services:
+  chromadb:
+    image: chromadb/chroma:0.5.0
+    container_name: saa-chromadb
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: saa-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=changeme123
+      - GENERIC_TIMEZONE=Asia/Kuala_Lumpur
+      - NODE_OPTIONS=--max-old-space-size=4096
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./notes:/home/node/.n8n-files/notes:ro
+
+    restart: unless-stopped
+    depends_on:
+      - chromadb
+
+
+volumes:
+  chroma_data:
+    name: aws-saa-rag_chroma_data
+  n8n_data:
+    name: aws-saa-rag_n8n_data
