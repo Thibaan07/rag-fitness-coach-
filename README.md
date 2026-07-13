@@ -13,6 +13,14 @@ Ask any fitness question in a chat interface, and get an answer generated from a
 
 ## Architecture
 
+## Screenshots
+
+### Ingest Workflow
+![Ingest Workflow](ingest-workflow.png)
+
+### Chat Workflow
+![Chat Workflow](chat-workflow.png)
+
 **Ingest workflow** (`n8n-workflows/ingest-workflow.json`):
 CSV → extract rows → combine Q&A into text → loop (rate-limit safe) → embed via Gemini → store in ChromaDB
 
